@@ -14,3 +14,4 @@ C:\Users\yusuf\OneDrive\Masaüstü\ImageProcessing\ImageProcessing\obj\Debug\net
 C:\Users\yusuf\OneDrive\Masaüstü\ImageProcessing\ImageProcessing\obj\Debug\net6.0-windows\ImageProcessing.pdb
 C:\Users\yusuf\OneDrive\Masaüstü\ImageProcessing\ImageProcessing\obj\Debug\net6.0-windows\ImageProcessing.genruntimeconfig.cache
 C:\Users\yusuf\OneDrive\Masaüstü\ImageProcessing\ImageProcessing\obj\Debug\net6.0-windows\ref\ImageProcessing.dll
+C:\Users\yusuf\OneDrive\Masaüstü\ImageProcessing\ImageProcessing\obj\Debug\net6.0-windows\ImageProcessing.sourcelink.json

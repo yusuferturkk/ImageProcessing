@@ -122,12 +122,9 @@
             // trackBarZoomScroll
             // 
             trackBarZoomScroll.Location = new Point(437, 459);
-            trackBarZoomScroll.Maximum = 20;
-            trackBarZoomScroll.Minimum = 1;
             trackBarZoomScroll.Name = "trackBarZoomScroll";
             trackBarZoomScroll.Size = new Size(114, 45);
             trackBarZoomScroll.TabIndex = 10;
-            trackBarZoomScroll.Value = 10;
             trackBarZoomScroll.Scroll += trackBarZoomScroll_Scroll;
             // 
             // btnLoadImage

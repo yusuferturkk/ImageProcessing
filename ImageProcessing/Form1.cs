@@ -45,9 +45,12 @@ namespace ImageProcessing
             var matrix = ConvertBitmapToPixelMatrix(bmp);
 
             int imgW = bmp.Width, imgH = bmp.Height;
+
+            // Merkezden kırpma koordinatları hesaplama
             int startX = Math.Max(0, (imgW - cropW) / 2);
             int startY = Math.Max(0, (imgH - cropH) / 2);
 
+            // Kırpılacak alan görüntünün dışına taşmasın diye sınırlandırıldı.
             cropW = Math.Min(cropW, imgW - startX);
             cropH = Math.Min(cropH, imgH - startY);
 
@@ -97,19 +100,16 @@ namespace ImageProcessing
 
             Pixel[,] zoomedMatrix;
 
-            if (value == 10)
+            if (value == 0)
             {
+                // 0 değeri, orijinal boyut (zoom yok)
                 zoomedMatrix = originalMatrix;
             }
-            else if (value > 10)
+            else
             {
-                int scale = value - 9; // örneğin 11 için scale 2 olur
+                // 1–10 arası değerler için büyütme oranını belirle (1 -> 2x, 2 -> 3x, ..., 10 -> 11x)
+                int scale = value + 1;
                 zoomedMatrix = ZoomIn(originalMatrix, scale);
-            }
-            else // value < 10
-            {
-                int scale = 11 - value; // örneğin 9 için scale 2 olur
-                zoomedMatrix = ZoomOut(originalMatrix, scale);
             }
 
             Bitmap bmp = ConvertPixelMatrixToBitmap(zoomedMatrix);
@@ -122,15 +122,17 @@ namespace ImageProcessing
         private Pixel[,] ConvertBitmapToPixelMatrix(Bitmap image)
         {
             int h = image.Height, w = image.Width;
+
+            // İki boyutlu dizi [width, height] değerlerini tutuyor
             var matrix = new Pixel[h, w];
 
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
                 {
+                    // Bitmap'in belirli bir (x, y) konumundaki pikseli okunur rgb değerleri alınır ve diziye aktarılır.
                     var c = image.GetPixel(x, y);
                     matrix[y, x] = new Pixel(c.R, c.G, c.B);
                 }
-
             return matrix;
         }
 
@@ -142,10 +144,10 @@ namespace ImageProcessing
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
                 {
+                    // Pixel matrisi içindeki(y, x) konumundaki piksel alınır ve renk değerleri aktarılır.
                     var p = matrix[y, x];
                     bmp.SetPixel(x, y, Color.FromArgb(p.R, p.G, p.B));
                 }
-
             return bmp;
         }
 
@@ -162,47 +164,57 @@ namespace ImageProcessing
 
         private Pixel[,] ConvertToGrayscale(Pixel[,] original)
         {
-            int h = original.GetLength(0), w = original.GetLength(1);
-            Pixel[,] grayMatrix = new Pixel[h, w];
+            int h = original.GetLength(0), w = original.GetLength(1); // Resmin yüksekliğini (satır sayısı) ve genişliğini (sütun sayısı) al
+            Pixel[,] grayMatrix = new Pixel[h, w]; // Gri tonlamalı yeni resmi tutacak matris oluştur
 
-            for (int y = 0; y < h; y++)
+            for (int y = 0; y < h; y++) // Her satır için
             {
-                for (int x = 0; x < w; x++)
+                for (int x = 0; x < w; x++) // Her sütun için
                 {
-                    Pixel p = original[y, x];
-                    int gray = (int)(0.299 * p.R + 0.587 * p.G + 0.114 * p.B);
-                    if (gray > 255) gray = 255;
-                    if (gray < 0) gray = 0;
+                    Pixel p = original[y, x]; // İlgili konumdaki orijinal pikseli al
 
+                    // Gri ton değeri hesapla: insan gözünün renk duyarlılığına göre ağırlıklı ortalama
+                    int gray = (int)(0.299 * p.R + 0.587 * p.G + 0.114 * p.B);
+
+                    // Değerin 0-255 aralığında olmasını sağla
+                    original[y, x] = new Pixel(
+                        (byte)ClampToByte(gray * 255),
+                        (byte)ClampToByte(gray * 255),
+                        (byte)ClampToByte(gray * 255)
+                    );
+
+                    // Yeni pikselde R, G, B aynı olacak şekilde gri piksel oluştur
                     grayMatrix[y, x] = new Pixel((byte)gray, (byte)gray, (byte)gray);
                 }
             }
-            return grayMatrix;
+            return grayMatrix; // Gri tonlamaya dönüştürülmüş resmi döndür
         }
 
         private Pixel[,] ConvertToHSV(Pixel[,] original)
         {
-            int h = original.GetLength(0), w = original.GetLength(1);
-            Pixel[,] result = new Pixel[h, w];
+            int h = original.GetLength(0), w = original.GetLength(1); // Resmin yüksekliği (h) ve genişliği (w)
+            Pixel[,] result = new Pixel[h, w]; // Yeni işlenmiş resmi tutacak dizi
 
             for (int y = 0; y < h; y++)
             {
                 for (int x = 0; x < w; x++)
                 {
-                    Pixel p = original[y, x];
-                    double r = p.R / 255.0;
+                    Pixel p = original[y, x]; // Mevcut pikseli al
+                    double r = p.R / 255.0;   // R, G, B değerlerini 0-1 aralığına getir
                     double g = p.G / 255.0;
                     double b = p.B / 255.0;
 
+                    // Maksimum ve minimum renk bileşenlerini bul
                     double max = r > g ? (r > b ? r : b) : (g > b ? g : b);
                     double min = r < g ? (r < b ? r : b) : (g < b ? g : b);
-                    double delta = max - min;
+                    double delta = max - min; // Renk farkı
 
-                    double hVal = 0, s = 0, v = max;
+                    double hVal = 0, s = 0, v = max; // Hue (hVal), Saturation (s), Value (v)
 
                     if (max != 0)
-                        s = delta / max;
+                        s = delta / max; // Saturation hesapla
 
+                    // Hue hesaplama (renk tonu)
                     if (delta != 0)
                     {
                         if (max == r)
@@ -211,32 +223,35 @@ namespace ImageProcessing
                             hVal = (b - r) / delta + 2;
                         else
                             hVal = (r - g) / delta + 4;
-                        hVal /= 6;
+
+                        hVal /= 6; // Hue değeri 0-1 aralığına çekilir
                     }
 
-                    // S & V'yi %50 artır (maksimum 1 olacak şekilde)
+                    // Saturation ve Value değerlerini %50 artır (maksimum 1 ile sınırla)
                     s = s * 1.5;
                     if (s > 1) s = 1;
 
                     v = v * 1.5;
                     if (v > 1) v = 1;
 
-                    // HSV → RGB
+                    // HSV'den tekrar RGB'ye dönüşüm
                     double r1 = 0, g1 = 0, b1 = 0;
 
                     if (s == 0)
                     {
+                        // Renk doygunluğu sıfırsa, gri tonlu renk oluşur
                         r1 = g1 = b1 = v;
                     }
                     else
                     {
-                        hVal *= 6;
-                        int i = (int)hVal;
-                        double f = hVal - i;
+                        hVal *= 6; // Hue değeri 0-6 aralığına çıkarılır
+                        int i = (int)hVal; // Hangi renk aralığında olduğunu bul
+                        double f = hVal - i; // Aralığın içindeki konumu
                         double p1 = v * (1 - s);
                         double q = v * (1 - s * f);
                         double t = v * (1 - s * (1 - f));
 
+                        // Renk dönüşümüne göre RGB değerlerini hesapla
                         switch (i % 6)
                         {
                             case 0: r1 = v; g1 = t; b1 = p1; break;
@@ -248,6 +263,7 @@ namespace ImageProcessing
                         }
                     }
 
+                    // Sonuç piksellerini yeni dizide sakla (RGB değerleri tekrar 0-255'e çevrilir)
                     result[y, x] = new Pixel(
                         (byte)ClampToByte(r1 * 255),
                         (byte)ClampToByte(g1 * 255),
@@ -255,7 +271,7 @@ namespace ImageProcessing
                     );
                 }
             }
-            return result;
+            return result; // İşlenmiş görüntüyü döndür
         }
 
         private Pixel[,] ConvertToCMYK(Pixel[,] matrix)
@@ -273,6 +289,7 @@ namespace ImageProcessing
                     float g = p.G / 255f;
                     float b = p.B / 255f;
 
+                    // K (Black) bileşeni: RGB’deki en yüksek değere bakılarak belirlenir.
                     float k = 1f - Math.Max(r, Math.Max(g, b));
                     float c = (1f - r - k) / (1f - k + 0.0001f);
                     float m = (1f - g - k) / (1f - k + 0.0001f);
@@ -307,62 +324,67 @@ namespace ImageProcessing
 
         private Pixel[,] ZoomIn(Pixel[,] original, int scale)
         {
-            int originalHeight = original.GetLength(0);
-            int originalWidth = original.GetLength(1);
+            int originalHeight = original.GetLength(0);  // Orijinal resmin yüksekliği
+            int originalWidth = original.GetLength(1);   // Orijinal resmin genişliği
 
-            int newHeight = originalHeight * scale;
-            int newWidth = originalWidth * scale;
+            int newHeight = originalHeight * scale;  // Yeni yüksekliği hesapla
+            int newWidth = originalWidth * scale;   // Yeni genişliği hesapla
 
-            Pixel[,] zoomed = new Pixel[newHeight, newWidth];
+            Pixel[,] zoomed = new Pixel[newHeight, newWidth];  // Yeni resim için yer ayır
 
+            // Orijinal resmin her bir pikselini işleme al
             for (int y = 0; y < originalHeight; y++)
             {
                 for (int x = 0; x < originalWidth; x++)
                 {
-                    Pixel p = original[y, x];
-                    for (int dy = 0; dy < scale; dy++)
+                    Pixel p = original[y, x];  // Orijinal resmin pikselini al
+
+                    // Bu pikseli yeni resme yerleştir
+                    for (int dy = 0; dy < scale; dy++) // Ölçek kadar y ekseninde kopyala
                     {
-                        for (int dx = 0; dx < scale; dx++)
+                        for (int dx = 0; dx < scale; dx++) // Ölçek kadar x ekseninde kopyala
                         {
-                            zoomed[y * scale + dy, x * scale + dx] = p;
+                            zoomed[y * scale + dy, x * scale + dx] = p;  // Yeni resme yerleştir
                         }
                     }
                 }
             }
-            return zoomed;
+            return zoomed;  // Büyütülmüş resmi döndür
         }
 
         private Pixel[,] ZoomOut(Pixel[,] original, int scale)
         {
-            int originalHeight = original.GetLength(0);
-            int originalWidth = original.GetLength(1);
+            int originalHeight = original.GetLength(0);  // Orijinal resmin yüksekliği
+            int originalWidth = original.GetLength(1);   // Orijinal resmin genişliği
 
-            int newHeight = originalHeight / scale;
-            int newWidth = originalWidth / scale;
+            int newHeight = originalHeight / scale;  // Yeni yüksekliği hesapla
+            int newWidth = originalWidth / scale;   // Yeni genişliği hesapla
 
-            Pixel[,] zoomed = new Pixel[newHeight, newWidth];
+            Pixel[,] zoomed = new Pixel[newHeight, newWidth];  // Yeni resim için yer ayır
 
+            // Yeni resme her bir pikseli yerleştir
             for (int y = 0; y < newHeight; y++)
             {
                 for (int x = 0; x < newWidth; x++)
                 {
                     int rSum = 0, gSum = 0, bSum = 0;
+
+                    // Ölçek kadar piksellerin ortalamasını al
                     for (int dy = 0; dy < scale; dy++)
                     {
                         for (int dx = 0; dx < scale; dx++)
                         {
-                            Pixel p = original[y * scale + dy, x * scale + dx];
-                            rSum += p.R;
-                            gSum += p.G;
-                            bSum += p.B;
+                            Pixel p = original[y * scale + dy, x * scale + dx];  // Orijinal resmin pikselini al
+                            rSum += p.R;  // Kırmızı kanalını topla
+                            gSum += p.G;  // Yeşil kanalını topla
+                            bSum += p.B;  // Mavi kanalını topla
                         }
                     }
-
-                    int count = scale * scale;
-                    zoomed[y, x] = new Pixel((byte)(rSum / count), (byte)(gSum / count), (byte)(bSum / count));
+                    int count = scale * scale;  // Ortalama için toplam piksel sayısı
+                    zoomed[y, x] = new Pixel((byte)(rSum / count), (byte)(gSum / count), (byte)(bSum / count));  // Ortalama rengi yeni pikselle yerleştir
                 }
             }
-            return zoomed;
+            return zoomed;  // Küçültülmüş resmi döndür
         }
     }
 }
